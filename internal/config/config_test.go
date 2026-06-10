@@ -52,3 +52,12 @@ func TestResolvedEnvOverridesFile(t *testing.T) {
 		t.Fatalf("got %s/%s/%s", email, token, ws)
 	}
 }
+
+func TestResolvedWorkspaceEnvOverride(t *testing.T) {
+	c := &config.Config{DefaultWorkspace: "fws"}
+	t.Setenv("BITBUCKET_WORKSPACE", "envws")
+	_, _, ws := c.Resolved()
+	if ws != "envws" {
+		t.Fatalf("ws = %q, want envws", ws)
+	}
+}

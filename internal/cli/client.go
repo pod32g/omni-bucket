@@ -40,6 +40,7 @@ func resolveRepo(cfg *config.Config) (string, error) {
 	if strings.Contains(flags.repo, "/") {
 		return flags.repo, nil
 	}
+	// Workspace precedence: --workspace flag > BITBUCKET_WORKSPACE env > config file.
 	_, _, ws := cfg.Resolved()
 	if flags.workspace != "" {
 		ws = flags.workspace

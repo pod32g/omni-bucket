@@ -48,20 +48,38 @@ func Load() (*Config, error) {
 	return &c, nil
 }
 
-// Save writes the config to disk with 0600 permissions.
+// Save writes the config to disk atomically with 0600 permissions.
 func (c *Config) Save() error {
 	p, err := Path()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+	dir := filepath.Dir(p)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	data, err := yaml.Marshal(c)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, 0o600)
+	tmp, err := os.CreateTemp(dir, ".config-*.yml")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName) // no-op after a successful rename
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, p)
 }
 
 // Resolved merges credentials, with env vars taking precedence over the file.
