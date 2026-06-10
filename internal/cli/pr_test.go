@@ -62,3 +62,28 @@ func TestPRListCommandJSON(t *testing.T) {
 		t.Fatalf("got %q", buf.String())
 	}
 }
+
+func TestAuthStatusCommand(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"username":"bob","display_name":"Bob Jones"}`)
+	}))
+	defer srv.Close()
+
+	cli.SetClientFactory(func() (*bitbucket.Client, error) {
+		c := bitbucket.NewClient("e", "t")
+		c.BaseURL = srv.URL
+		return c, nil
+	})
+	defer cli.ResetClientFactory()
+
+	root := cli.NewRootCmd()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"auth", "status"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "Bob Jones") {
+		t.Fatalf("got %q", buf.String())
+	}
+}
