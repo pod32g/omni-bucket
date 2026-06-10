@@ -36,6 +36,9 @@ func TestPullRequestsApprove(t *testing.T) {
 	var method, path string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		method, path = r.Method, r.URL.Path
+		if r.Header.Get("Content-Type") != "" {
+			t.Errorf("approve must not send Content-Type, got %q", r.Header.Get("Content-Type"))
+		}
 		fmt.Fprint(w, `{"approved":true}`)
 	}))
 	defer srv.Close()
@@ -96,5 +99,8 @@ func TestPullRequestsCreate(t *testing.T) {
 	}
 	if gotBody["title"] != "My PR" {
 		t.Fatalf("request title = %v", gotBody["title"])
+	}
+	if _, hasDesc := gotBody["description"]; hasDesc {
+		t.Fatal("description key should be absent when Description is empty")
 	}
 }

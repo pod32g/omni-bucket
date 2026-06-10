@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -85,6 +84,9 @@ func prRepoAndID(args []string) (string, int, error) {
 	id, err := strconv.Atoi(args[0])
 	if err != nil {
 		return "", 0, fmt.Errorf("invalid pull request id %q", args[0])
+	}
+	if id <= 0 {
+		return "", 0, fmt.Errorf("invalid pull request id %q: must be a positive integer", args[0])
 	}
 	return repo, id, nil
 }
@@ -172,9 +174,6 @@ func newPRCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create a pull request",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if title == "" || source == "" {
-				return errors.New("--title and --source are required")
-			}
 			cfg, err := config.Load()
 			if err != nil {
 				return err
@@ -204,5 +203,7 @@ func newPRCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&source, "source", "", "source branch (required)")
 	cmd.Flags().StringVar(&destination, "destination", "", "destination branch")
 	cmd.Flags().StringVar(&description, "description", "", "pull request description")
+	cmd.MarkFlagRequired("title")
+	cmd.MarkFlagRequired("source")
 	return cmd
 }
