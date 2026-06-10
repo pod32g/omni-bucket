@@ -15,6 +15,9 @@ func TestPipelinesList(t *testing.T) {
 		if r.URL.Path != "/repositories/ws/repo/pipelines/" {
 			t.Errorf("path = %q", r.URL.Path)
 		}
+		if r.URL.Query().Get("sort") != "-created_on" {
+			t.Errorf("sort = %q, want -created_on", r.URL.Query().Get("sort"))
+		}
 		fmt.Fprint(w, `{"values":[{"build_number":42,"state":{"name":"COMPLETED"}}]}`)
 	}))
 	defer srv.Close()
