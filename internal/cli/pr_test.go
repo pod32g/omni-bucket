@@ -137,3 +137,55 @@ func TestPRListRejectsInvalidState(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestAuthLogoutClearsCredentials(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yml")
+	t.Setenv("OMNI_BUCKET_CONFIG", path)
+	seed := &config.Config{Method: "oauth", DefaultWorkspace: "keepme",
+		OAuth: &config.OAuthConfig{ClientID: "id", RefreshToken: "rt"}}
+	if err := seed.Save(); err != nil {
+		t.Fatal(err)
+	}
+	root := cli.NewRootCmd()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"auth", "logout"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Method != "" || got.OAuth != nil || got.Email != "" || got.Token != "" {
+		t.Fatalf("creds not cleared: %+v", got)
+	}
+	if got.DefaultWorkspace != "keepme" {
+		t.Fatalf("workspace should be preserved, got %q", got.DefaultWorkspace)
+	}
+}
+
+func TestAuthStatusShowsMethod(t *testing.T) {
+	t.Setenv("OMNI_BUCKET_CONFIG", filepath.Join(t.TempDir(), "config.yml"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"username":"bob","display_name":"Bob"}`)
+	}))
+	defer srv.Close()
+	cli.SetClientFactory(func() (*bitbucket.Client, error) {
+		c := bitbucket.NewClient("e", "t")
+		c.BaseURL = srv.URL
+		return c, nil
+	})
+	defer cli.ResetClientFactory()
+
+	root := cli.NewRootCmd()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"auth", "status"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "Bob") || !strings.Contains(buf.String(), "token") {
+		t.Fatalf("got %q", buf.String())
+	}
+}

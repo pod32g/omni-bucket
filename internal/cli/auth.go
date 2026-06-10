@@ -14,16 +14,21 @@ import (
 
 func newAuthCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "auth", Short: "Manage authentication"}
-	cmd.AddCommand(newAuthLoginCmd(), newAuthStatusCmd())
+	cmd.AddCommand(newAuthLoginCmd(), newAuthStatusCmd(), newAuthLogoutCmd())
 	return cmd
 }
 
 func newAuthLoginCmd() *cobra.Command {
 	var email, token string
+	var browser bool
+	var clientID, clientSecret string
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Authenticate with a Bitbucket API token",
+		Short: "Authenticate with a Bitbucket API token (use --browser for OAuth)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if browser {
+				return runBrowserLogin(cmd, clientID, clientSecret)
+			}
 			out := cmd.OutOrStdout()
 
 			if email == "" {
@@ -72,6 +77,9 @@ func newAuthLoginCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&email, "email", "", "Bitbucket account email (skips the prompt)")
 	cmd.Flags().StringVar(&token, "token", "", "Bitbucket API token (skips the hidden prompt)")
+	cmd.Flags().BoolVar(&browser, "browser", false, "log in via the browser (OAuth 2.0)")
+	cmd.Flags().StringVar(&clientID, "client-id", "", "OAuth consumer key (with --browser)")
+	cmd.Flags().StringVar(&clientSecret, "client-secret", "", "OAuth consumer secret (with --browser)")
 	return cmd
 }
 
@@ -80,6 +88,10 @@ func newAuthStatusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Show the authenticated account",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
 			client, err := newClientFn()
 			if err != nil {
 				return err
@@ -88,7 +100,29 @@ func newAuthStatusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Logged in as %s (%s)\n", acct.DisplayName, acct.Username)
+			fmt.Fprintf(cmd.OutOrStdout(), "Logged in as %s (%s) [%s]\n", acct.DisplayName, acct.Username, cfg.AuthMethod())
+			return nil
+		},
+	}
+}
+
+func newAuthLogoutCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "logout",
+		Short: "Remove stored credentials",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			cfg.Method = ""
+			cfg.Email = ""
+			cfg.Token = ""
+			cfg.OAuth = nil
+			if err := cfg.Save(); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Logged out.")
 			return nil
 		},
 	}

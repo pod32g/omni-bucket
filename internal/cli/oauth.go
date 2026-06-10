@@ -1,17 +1,24 @@
 package cli
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/pod32g/omni-bucket/internal/bitbucket"
 	"github.com/pod32g/omni-bucket/internal/config"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 const (
@@ -120,4 +127,105 @@ func persistOAuthTokens(access, refresh string, expiry time.Time) {
 	cfg.OAuth.RefreshToken = refresh
 	cfg.OAuth.Expiry = expiry
 	_ = cfg.Save()
+}
+
+// promptLine prints a label and reads one trimmed line from stdin.
+func promptLine(cmd *cobra.Command, label string) (string, error) {
+	fmt.Fprint(cmd.OutOrStdout(), label)
+	line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(line), nil
+}
+
+// runBrowserLogin performs the OAuth 2.0 authorization-code flow via a local
+// callback server and stores the resulting tokens.
+func runBrowserLogin(cmd *cobra.Command, clientID, clientSecret string) error {
+	out := cmd.OutOrStdout()
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if clientID == "" {
+		clientID = os.Getenv("BITBUCKET_OAUTH_CLIENT_ID")
+	}
+	if clientSecret == "" {
+		clientSecret = os.Getenv("BITBUCKET_OAUTH_CLIENT_SECRET")
+	}
+	if clientID == "" && cfg.OAuth != nil {
+		clientID = cfg.OAuth.ClientID
+	}
+	if clientSecret == "" && cfg.OAuth != nil {
+		clientSecret = cfg.OAuth.ClientSecret
+	}
+	if clientID == "" {
+		clientID, err = promptLine(cmd, "OAuth consumer Key (client_id): ")
+		if err != nil {
+			return err
+		}
+	}
+	if clientSecret == "" {
+		fmt.Fprint(out, "OAuth consumer Secret (input hidden): ")
+		b, perr := term.ReadPassword(int(os.Stdin.Fd()))
+		if perr != nil {
+			return perr
+		}
+		fmt.Fprintln(out)
+		clientSecret = strings.TrimSpace(string(b))
+	}
+	if clientID == "" || clientSecret == "" {
+		return errors.New("client_id and client_secret are required")
+	}
+
+	state, err := randomState()
+	if err != nil {
+		return err
+	}
+	resultCh := make(chan callbackResult, 1)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/callback", newCallbackHandler(state, resultCh))
+	ln, err := net.Listen("tcp", "127.0.0.1:"+oauthCallbackPort)
+	if err != nil {
+		return fmt.Errorf("cannot start callback server on port %s (already in use?): %w", oauthCallbackPort, err)
+	}
+	srv := &http.Server{Handler: mux}
+	go srv.Serve(ln) //nolint:errcheck
+	defer srv.Close()
+
+	authURL := buildAuthorizeURL(clientID, oauthRedirectURI, state)
+	fmt.Fprintf(out, "Opening your browser to authorize. If it does not open, visit:\n%s\n", authURL)
+	_ = openBrowser(authURL)
+
+	var res callbackResult
+	select {
+	case res = <-resultCh:
+	case <-time.After(2 * time.Minute):
+		return errors.New("timed out waiting for the authorization callback")
+	}
+	if res.err != nil {
+		return res.err
+	}
+
+	tok, err := bitbucket.ExchangeCode(cmd.Context(), nil, clientID, clientSecret, res.code, oauthRedirectURI, time.Now)
+	if err != nil {
+		return err
+	}
+
+	ts := bitbucket.NewOAuthTokenSource(clientID, clientSecret, tok.AccessToken, tok.RefreshToken, tok.Expiry, nil, nil)
+	acct, err := bitbucket.NewClientWithAuth(ts).CurrentUser(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("token verification failed: %w", err)
+	}
+
+	cfg.Method = "oauth"
+	cfg.OAuth = &config.OAuthConfig{
+		ClientID: clientID, ClientSecret: clientSecret,
+		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken, Expiry: tok.Expiry,
+	}
+	if err := cfg.Save(); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Logged in as %s (%s) via OAuth\n", acct.DisplayName, acct.Username)
+	return nil
 }
