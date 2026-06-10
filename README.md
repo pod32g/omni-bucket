@@ -26,6 +26,31 @@ export BITBUCKET_API_TOKEN="<scoped token>"
 export BITBUCKET_WORKSPACE="my-workspace"   # optional default workspace
 ```
 
+### Browser login (OAuth 2.0)
+
+`bb` can also log in through your browser using a Bitbucket OAuth consumer you
+create once:
+
+1. In Bitbucket: **Workspace settings → OAuth consumers → Add consumer**.
+   - **Callback URL:** `http://127.0.0.1:8765/callback`
+   - **Permissions (scopes):** grant what you need — Account, Repositories,
+     Pull requests, Pipelines, Issues (read/write as appropriate).
+2. Run:
+   ```bash
+   bb auth login --browser
+   ```
+   You'll be prompted for the consumer **Key** (`client_id`) and **Secret** the
+   first time (or pass `--client-id`/`--client-secret`, or set
+   `BITBUCKET_OAUTH_CLIENT_ID` / `BITBUCKET_OAUTH_CLIENT_SECRET`). `bb` opens the
+   browser, you approve, and the tokens are stored in
+   `~/.config/omni-bucket/config.yml` (0600) and refreshed automatically.
+
+Remove stored credentials at any time:
+
+```bash
+bb auth logout
+```
+
 ## Usage
 
 ```bash

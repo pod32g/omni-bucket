@@ -12,12 +12,11 @@ import (
 // DefaultBaseURL is the Bitbucket Cloud REST API 2.0 root.
 const DefaultBaseURL = "https://api.bitbucket.org/2.0"
 
-// Client talks to the Bitbucket Cloud REST API using API-token Basic auth.
+// Client talks to the Bitbucket Cloud REST API.
 type Client struct {
 	BaseURL    string
-	Email      string
-	Token      string
 	HTTPClient *http.Client
+	auth       Authorizer
 
 	PullRequests *PullRequestsService
 	Repositories *RepositoriesService
@@ -27,11 +26,15 @@ type Client struct {
 
 // NewClient builds a client authenticated with an email + scoped API token.
 func NewClient(email, token string) *Client {
+	return NewClientWithAuth(&BasicAuth{Email: email, Token: token})
+}
+
+// NewClientWithAuth builds a client with a custom Authorizer (e.g. OAuth).
+func NewClientWithAuth(auth Authorizer) *Client {
 	c := &Client{
 		BaseURL:    DefaultBaseURL,
-		Email:      email,
-		Token:      token,
 		HTTPClient: &http.Client{},
+		auth:       auth,
 	}
 	c.PullRequests = &PullRequestsService{client: c}
 	c.Repositories = &RepositoriesService{client: c}
@@ -55,7 +58,9 @@ func (c *Client) do(ctx context.Context, method, pathOrURL string, body io.Reade
 	// Attach credentials only to the configured API host so an unexpected
 	// absolute `next` URL pointing elsewhere never receives the token.
 	if base, perr := url.Parse(c.BaseURL); perr == nil && req.URL.Host == base.Host {
-		req.SetBasicAuth(c.Email, c.Token)
+		if err := c.auth.Authorize(ctx, req); err != nil {
+			return err
+		}
 	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
