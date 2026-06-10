@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,7 +14,7 @@ import (
 
 func newPRCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "pr", Short: "Work with pull requests"}
-	cmd.AddCommand(newPRListCmd())
+	cmd.AddCommand(newPRListCmd(), newPRViewCmd(), newPRApproveCmd(), newPRMergeCmd(), newPRCreateCmd())
 	return cmd
 }
 
@@ -69,5 +70,139 @@ func newPRListCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&state, "state", "open", "filter by state (open, merged, declined)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max results (0 = all)")
+	return cmd
+}
+
+func prRepoAndID(args []string) (string, int, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return "", 0, err
+	}
+	repo, err := resolveRepo(cfg)
+	if err != nil {
+		return "", 0, err
+	}
+	id, err := strconv.Atoi(args[0])
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid pull request id %q", args[0])
+	}
+	return repo, id, nil
+}
+
+func newPRViewCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "view <id>",
+		Short: "View a pull request",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repo, id, err := prRepoAndID(args)
+			if err != nil {
+				return err
+			}
+			client, err := newClientFn()
+			if err != nil {
+				return err
+			}
+			pr, err := client.PullRequests.Get(cmd.Context(), repo, id)
+			if err != nil {
+				return err
+			}
+			if flags.json {
+				return output.JSON(cmd.OutOrStdout(), pr)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "#%d %s [%s]\n%s -> %s\nAuthor: %s\n",
+				pr.ID, pr.Title, pr.State,
+				pr.Source.Branch.Name, pr.Destination.Branch.Name,
+				pr.Author.DisplayName)
+			return nil
+		},
+	}
+}
+
+func newPRApproveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "approve <id>",
+		Short: "Approve a pull request",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repo, id, err := prRepoAndID(args)
+			if err != nil {
+				return err
+			}
+			client, err := newClientFn()
+			if err != nil {
+				return err
+			}
+			if err := client.PullRequests.Approve(cmd.Context(), repo, id); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Approved pull request #%d\n", id)
+			return nil
+		},
+	}
+}
+
+func newPRMergeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "merge <id>",
+		Short: "Merge a pull request",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repo, id, err := prRepoAndID(args)
+			if err != nil {
+				return err
+			}
+			client, err := newClientFn()
+			if err != nil {
+				return err
+			}
+			pr, err := client.PullRequests.Merge(cmd.Context(), repo, id)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Merged pull request #%d (state: %s)\n", pr.ID, pr.State)
+			return nil
+		},
+	}
+}
+
+func newPRCreateCmd() *cobra.Command {
+	var title, source, destination, description string
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a pull request",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if title == "" || source == "" {
+				return errors.New("--title and --source are required")
+			}
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			repo, err := resolveRepo(cfg)
+			if err != nil {
+				return err
+			}
+			client, err := newClientFn()
+			if err != nil {
+				return err
+			}
+			pr, err := client.PullRequests.Create(cmd.Context(), repo, bitbucket.CreatePullRequest{
+				Title:       title,
+				Source:      source,
+				Destination: destination,
+				Description: description,
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Created pull request #%d\n", pr.ID)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&title, "title", "", "pull request title (required)")
+	cmd.Flags().StringVar(&source, "source", "", "source branch (required)")
+	cmd.Flags().StringVar(&destination, "destination", "", "destination branch")
+	cmd.Flags().StringVar(&description, "description", "", "pull request description")
 	return cmd
 }
