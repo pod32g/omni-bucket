@@ -23,5 +23,6 @@ func NewRootCmd() *cobra.Command {
 	root.PersistentFlags().StringVar(&flags.workspace, "workspace", "", "default workspace")
 	root.AddCommand(newPRCmd())
 	root.AddCommand(newAuthCmd())
+	root.AddCommand(newRepoCmd())
 	return root
 }

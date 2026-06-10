@@ -19,6 +19,7 @@ type Client struct {
 	HTTPClient *http.Client
 
 	PullRequests *PullRequestsService
+	Repositories *RepositoriesService
 }
 
 // NewClient builds a client authenticated with an email + scoped API token.
@@ -30,6 +31,7 @@ func NewClient(email, token string) *Client {
 		HTTPClient: &http.Client{},
 	}
 	c.PullRequests = &PullRequestsService{client: c}
+	c.Repositories = &RepositoriesService{client: c}
 	return c
 }
 
