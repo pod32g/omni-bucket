@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/pod32g/omni-bucket/internal/bitbucket"
 	"github.com/pod32g/omni-bucket/internal/cli"
+	"github.com/pod32g/omni-bucket/internal/config"
 )
 
 func TestPRListCommandRendersTable(t *testing.T) {
@@ -85,5 +87,53 @@ func TestAuthStatusCommand(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "Bob Jones") {
 		t.Fatalf("got %q", buf.String())
+	}
+}
+
+func TestAuthLoginNonInteractive(t *testing.T) {
+	t.Setenv("OMNI_BUCKET_CONFIG", filepath.Join(t.TempDir(), "config.yml"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"username":"bob","display_name":"Bob"}`)
+	}))
+	defer srv.Close()
+
+	cli.SetCredClientFactory(func(email, token string) *bitbucket.Client {
+		c := bitbucket.NewClient(email, token)
+		c.BaseURL = srv.URL
+		return c
+	})
+	defer cli.ResetCredClientFactory()
+
+	root := cli.NewRootCmd()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"auth", "login", "--email", "bob@x.com", "--token", "secret"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "Logged in as Bob") {
+		t.Fatalf("output = %q", buf.String())
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Email != "bob@x.com" || cfg.Token != "secret" {
+		t.Fatalf("config not saved: %+v", cfg)
+	}
+}
+
+func TestPRListRejectsInvalidState(t *testing.T) {
+	root := cli.NewRootCmd()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetErr(&buf)
+	root.SetArgs([]string{"pr", "list", "--repo", "ws/repo", "--state", "bogus"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid state")
+	}
+	if !strings.Contains(err.Error(), "unknown state") {
+		t.Fatalf("error = %v", err)
 	}
 }

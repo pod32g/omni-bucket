@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -31,13 +32,18 @@ func newPRListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			upperState := strings.ToUpper(state)
+			validStates := map[string]bool{"OPEN": true, "MERGED": true, "DECLINED": true, "SUPERSEDED": true}
+			if !validStates[upperState] {
+				return fmt.Errorf("unknown state %q; must be one of: open, merged, declined, superseded", state)
+			}
 			client, err := newClientFn()
 			if err != nil {
 				return err
 			}
 			var prs []bitbucket.PullRequest
 			for pr, err := range client.PullRequests.List(cmd.Context(), repo, bitbucket.ListOptions{
-				State: strings.ToUpper(state),
+				State: upperState,
 				Limit: limit,
 			}) {
 				if err != nil {

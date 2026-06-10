@@ -18,6 +18,16 @@ func SetClientFactory(fn func() (*bitbucket.Client, error)) { newClientFn = fn }
 // ResetClientFactory restores the default factory (test helper).
 func ResetClientFactory() { newClientFn = defaultNewClient }
 
+// newCredClientFn builds a client from explicit credentials (used by `auth
+// login`, which has credentials before any config is saved). Overridable in tests.
+var newCredClientFn = bitbucket.NewClient
+
+// SetCredClientFactory overrides the credential client factory (test helper).
+func SetCredClientFactory(fn func(email, token string) *bitbucket.Client) { newCredClientFn = fn }
+
+// ResetCredClientFactory restores the default credential factory (test helper).
+func ResetCredClientFactory() { newCredClientFn = bitbucket.NewClient }
+
 func defaultNewClient() (*bitbucket.Client, error) {
 	cfg, err := config.Load()
 	if err != nil {
