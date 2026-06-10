@@ -1,0 +1,14 @@
+# Binaries
+/bb
+/omni-bucket
+*.exe
+
+# Test/coverage
+*.out
+coverage.*
+
+# OS
+.DS_Store
+
+# Local config
+*.local.yml
