@@ -20,6 +20,7 @@ type Client struct {
 
 	PullRequests *PullRequestsService
 	Repositories *RepositoriesService
+	Pipelines    *PipelinesService
 }
 
 // NewClient builds a client authenticated with an email + scoped API token.
@@ -32,6 +33,7 @@ func NewClient(email, token string) *Client {
 	}
 	c.PullRequests = &PullRequestsService{client: c}
 	c.Repositories = &RepositoriesService{client: c}
+	c.Pipelines = &PipelinesService{client: c}
 	return c
 }
 
