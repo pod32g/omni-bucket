@@ -24,6 +24,11 @@ func newPRListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List pull requests",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			upperState := strings.ToUpper(state)
+			validStates := map[string]bool{"OPEN": true, "MERGED": true, "DECLINED": true, "SUPERSEDED": true}
+			if !validStates[upperState] {
+				return fmt.Errorf("unknown state %q; must be one of: open, merged, declined, superseded", state)
+			}
 			cfg, err := config.Load()
 			if err != nil {
 				return err
@@ -31,11 +36,6 @@ func newPRListCmd() *cobra.Command {
 			repo, err := resolveRepo(cfg)
 			if err != nil {
 				return err
-			}
-			upperState := strings.ToUpper(state)
-			validStates := map[string]bool{"OPEN": true, "MERGED": true, "DECLINED": true, "SUPERSEDED": true}
-			if !validStates[upperState] {
-				return fmt.Errorf("unknown state %q; must be one of: open, merged, declined, superseded", state)
 			}
 			client, err := newClientFn()
 			if err != nil {
@@ -67,7 +67,7 @@ func newPRListCmd() *cobra.Command {
 			return output.Table(cmd.OutOrStdout(), []string{"ID", "STATE", "TITLE", "BRANCH", "AUTHOR"}, rows)
 		},
 	}
-	cmd.Flags().StringVar(&state, "state", "open", "filter by state (open, merged, declined)")
+	cmd.Flags().StringVar(&state, "state", "open", "filter by state (open, merged, declined, superseded)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max results (0 = all)")
 	return cmd
 }
@@ -138,6 +138,9 @@ func newPRApproveCmd() *cobra.Command {
 			if err := client.PullRequests.Approve(cmd.Context(), repo, id); err != nil {
 				return err
 			}
+			if flags.json {
+				return output.JSON(cmd.OutOrStdout(), map[string]any{"approved": true, "id": id})
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Approved pull request #%d\n", id)
 			return nil
 		},
@@ -161,6 +164,9 @@ func newPRMergeCmd() *cobra.Command {
 			pr, err := client.PullRequests.Merge(cmd.Context(), repo, id)
 			if err != nil {
 				return err
+			}
+			if flags.json {
+				return output.JSON(cmd.OutOrStdout(), pr)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Merged pull request #%d (state: %s)\n", pr.ID, pr.State)
 			return nil
@@ -194,6 +200,9 @@ func newPRCreateCmd() *cobra.Command {
 			})
 			if err != nil {
 				return err
+			}
+			if flags.json {
+				return output.JSON(cmd.OutOrStdout(), pr)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Created pull request #%d\n", pr.ID)
 			return nil

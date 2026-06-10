@@ -142,3 +142,23 @@ func TestPRViewCommandRejectsNonPositiveID(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestPRMergeCommandJSON(t *testing.T) {
+	t.Setenv("OMNI_BUCKET_CONFIG", filepath.Join(t.TempDir(), "config.yml"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"id":3,"state":"MERGED"}`)
+	}))
+	defer srv.Close()
+	pointFactoryAt(t, srv.URL)
+
+	root := cli.NewRootCmd()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"pr", "merge", "3", "--repo", "ws/repo", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), `"state": "MERGED"`) {
+		t.Fatalf("got %q", buf.String())
+	}
+}

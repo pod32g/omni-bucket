@@ -35,6 +35,7 @@ func (s *PipelinesService) List(ctx context.Context, repo string, opts PipelineL
 	q := url.Values{}
 	q.Set("pagelen", "100")
 	q.Set("sort", "-created_on")
+	// The Bitbucket Pipelines collection endpoint requires the trailing slash.
 	path := fmt.Sprintf("/repositories/%s/pipelines/?%s", repo, q.Encode())
 	seq := pages[Pipeline](ctx, s.client, path)
 	if opts.Limit > 0 {

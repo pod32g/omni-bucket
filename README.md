@@ -29,7 +29,7 @@ export BITBUCKET_WORKSPACE="my-workspace"   # optional default workspace
 ## Usage
 
 ```bash
-bb pr list --repo workspace/repo [--state open|merged|declined] [--limit N] [--json]
+bb pr list --repo workspace/repo [--state open|merged|declined|superseded] [--limit N] [--json]
 bb pr view <id> --repo workspace/repo
 bb pr approve <id> --repo workspace/repo
 bb pr merge <id> --repo workspace/repo
@@ -40,4 +40,4 @@ bb pipeline list --repo workspace/repo [--json]
 bb issue list --repo workspace/repo [--json]
 ```
 
-Every command supports `--json` for scripting.
+All `list` and `view` commands, plus `pr approve`/`merge`/`create`, support `--json` for scripting.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -51,7 +52,11 @@ func (c *Client) do(ctx context.Context, method, pathOrURL string, body io.Reade
 	if err != nil {
 		return err
 	}
-	req.SetBasicAuth(c.Email, c.Token)
+	// Attach credentials only to the configured API host so an unexpected
+	// absolute `next` URL pointing elsewhere never receives the token.
+	if base, perr := url.Parse(c.BaseURL); perr == nil && req.URL.Host == base.Host {
+		req.SetBasicAuth(c.Email, c.Token)
+	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
