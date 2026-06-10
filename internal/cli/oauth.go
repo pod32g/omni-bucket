@@ -189,7 +189,7 @@ func runBrowserLogin(cmd *cobra.Command, clientID, clientSecret string) error {
 	if err != nil {
 		return fmt.Errorf("cannot start callback server on port %s (already in use?): %w", oauthCallbackPort, err)
 	}
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go srv.Serve(ln) //nolint:errcheck
 	defer srv.Close()
 
@@ -218,6 +218,8 @@ func runBrowserLogin(cmd *cobra.Command, clientID, clientSecret string) error {
 		return fmt.Errorf("token verification failed: %w", err)
 	}
 
+	cfg.Email = ""
+	cfg.Token = ""
 	cfg.Method = "oauth"
 	cfg.OAuth = &config.OAuthConfig{
 		ClientID: clientID, ClientSecret: clientSecret,

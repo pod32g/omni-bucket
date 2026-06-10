@@ -66,6 +66,8 @@ func newAuthLoginCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cfg.Method = ""
+			cfg.OAuth = nil
 			cfg.Email = email
 			cfg.Token = token
 			if err := cfg.Save(); err != nil {
@@ -79,7 +81,7 @@ func newAuthLoginCmd() *cobra.Command {
 	cmd.Flags().StringVar(&token, "token", "", "Bitbucket API token (skips the hidden prompt)")
 	cmd.Flags().BoolVar(&browser, "browser", false, "log in via the browser (OAuth 2.0)")
 	cmd.Flags().StringVar(&clientID, "client-id", "", "OAuth consumer key (with --browser)")
-	cmd.Flags().StringVar(&clientSecret, "client-secret", "", "OAuth consumer secret (with --browser)")
+	cmd.Flags().StringVar(&clientSecret, "client-secret", "", "OAuth consumer secret (visible in process list; prefer BITBUCKET_OAUTH_CLIENT_SECRET or the prompt)")
 	return cmd
 }
 

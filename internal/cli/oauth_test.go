@@ -103,3 +103,18 @@ func TestOAuthClientFromConfigRequiresRefreshToken(t *testing.T) {
 		t.Fatal("expected error when OAuth block is missing")
 	}
 }
+
+func TestCallbackHandlerOAuthError(t *testing.T) {
+	ch := make(chan callbackResult, 1)
+	h := newCallbackHandler("st", ch)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/callback?error=access_denied", nil)
+	h(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("code = %d", rec.Code)
+	}
+	res := <-ch
+	if res.err == nil {
+		t.Fatal("expected an error for the error= callback")
+	}
+}

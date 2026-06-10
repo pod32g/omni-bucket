@@ -189,3 +189,39 @@ func TestAuthStatusShowsMethod(t *testing.T) {
 		t.Fatalf("got %q", buf.String())
 	}
 }
+
+func TestTokenLoginClearsOAuthSession(t *testing.T) {
+	t.Setenv("OMNI_BUCKET_CONFIG", filepath.Join(t.TempDir(), "config.yml"))
+	seed := &config.Config{Method: "oauth", OAuth: &config.OAuthConfig{ClientID: "id", RefreshToken: "rt"}}
+	if err := seed.Save(); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"username":"bob","display_name":"Bob"}`)
+	}))
+	defer srv.Close()
+	cli.SetCredClientFactory(func(email, token string) *bitbucket.Client {
+		c := bitbucket.NewClient(email, token)
+		c.BaseURL = srv.URL
+		return c
+	})
+	defer cli.ResetCredClientFactory()
+
+	root := cli.NewRootCmd()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"auth", "login", "--email", "e@x.com", "--token", "tok"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AuthMethod() != "token" || got.OAuth != nil {
+		t.Fatalf("oauth session not cleared: %+v", got)
+	}
+	if got.Email != "e@x.com" || got.Token != "tok" {
+		t.Fatalf("token creds not saved: %+v", got)
+	}
+}
