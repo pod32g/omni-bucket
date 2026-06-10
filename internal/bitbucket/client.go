@@ -38,7 +38,7 @@ func NewClient(email, token string) *Client {
 // link). When out is non-nil, a successful JSON body is decoded into it.
 func (c *Client) do(ctx context.Context, method, pathOrURL string, body io.Reader, out any) error {
 	target := pathOrURL
-	if !strings.HasPrefix(pathOrURL, "http") {
+	if !strings.HasPrefix(pathOrURL, "http://") && !strings.HasPrefix(pathOrURL, "https://") {
 		target = c.BaseURL + pathOrURL
 	}
 	req, err := http.NewRequestWithContext(ctx, method, target, body)

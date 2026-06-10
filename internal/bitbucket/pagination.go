@@ -7,7 +7,8 @@ import (
 )
 
 // pages yields every item across all pages, following the opaque `next` URL
-// until exhausted. On error it yields the zero value plus the error and stops.
+// until exhausted. On error it yields the zero value of T together with the
+// error and then stops, so callers MUST check the error before using the value.
 func pages[T any](ctx context.Context, c *Client, firstPathOrURL string) iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		next := firstPathOrURL
