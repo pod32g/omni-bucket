@@ -151,7 +151,7 @@ func (s *OAuthTokenSource) refresh(ctx context.Context) error {
 	form.Set("refresh_token", s.RefreshToken)
 	tr, err := postToken(ctx, s.HTTPClient, s.ClientID, s.ClientSecret, form)
 	if err != nil {
-		return fmt.Errorf("oauth refresh failed (re-run `bb auth login --browser`): %w", err)
+		return fmt.Errorf("oauth token refresh failed; please re-authenticate: %w", err)
 	}
 	now := s.now
 	if now == nil {

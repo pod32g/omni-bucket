@@ -23,7 +23,7 @@ import (
 
 const (
 	oauthCallbackPort = "8765"
-	oauthRedirectURI  = "http://localhost:8765/callback"
+	oauthRedirectURI  = "http://127.0.0.1:8765/callback"
 )
 
 // buildAuthorizeURL builds the Bitbucket authorize URL for the code grant.

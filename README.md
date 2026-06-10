@@ -32,7 +32,7 @@ export BITBUCKET_WORKSPACE="my-workspace"   # optional default workspace
 create once:
 
 1. In Bitbucket: **Workspace settings → OAuth consumers → Add consumer**.
-   - **Callback URL:** `http://localhost:8765/callback`
+   - **Callback URL:** `http://127.0.0.1:8765/callback`
    - **Permissions (scopes):** grant what you need — Account, Repositories,
      Pull requests, Pipelines, Issues (read/write as appropriate).
 2. Run:
