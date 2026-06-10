@@ -25,6 +25,12 @@ type tokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
+// oauthErrorResponse is the RFC 6749 token-endpoint error shape.
+type oauthErrorResponse struct {
+	Code        string `json:"error"`
+	Description string `json:"error_description"`
+}
+
 // OAuthToken is the result of a successful code exchange or refresh.
 type OAuthToken struct {
 	AccessToken  string
@@ -54,6 +60,10 @@ func postToken(ctx context.Context, httpClient *http.Client, clientID, clientSec
 		return nil, err
 	}
 	if resp.StatusCode >= 400 {
+		var oe oauthErrorResponse
+		if json.Unmarshal(data, &oe) == nil && oe.Code != "" {
+			return nil, &APIError{StatusCode: resp.StatusCode, Message: oe.Code, Detail: oe.Description}
+		}
 		return nil, parseAPIError(resp.StatusCode, data)
 	}
 	var tr tokenResponse
@@ -81,14 +91,24 @@ func ExchangeCode(ctx context.Context, httpClient *http.Client, clientID, client
 	return &OAuthToken{
 		AccessToken:  tr.AccessToken,
 		RefreshToken: tr.RefreshToken,
-		Expiry:       now().Add(time.Duration(tr.ExpiresIn) * time.Second),
+		Expiry:       expiryFromExpiresIn(now, tr.ExpiresIn),
 	}, nil
+}
+
+// expiryFromExpiresIn computes an absolute expiry, falling back to one hour when
+// the server omits or zeroes expires_in (prevents a refresh-on-every-request loop).
+func expiryFromExpiresIn(now func() time.Time, expiresIn int) time.Time {
+	if expiresIn > 0 {
+		return now().Add(time.Duration(expiresIn) * time.Second)
+	}
+	return now().Add(time.Hour)
 }
 
 const expiryBuffer = 60 * time.Second
 
 // OAuthTokenSource is an Authorizer that attaches a Bearer access token,
 // refreshing it via the refresh token when expired or about to expire.
+// It is not safe for concurrent use.
 type OAuthTokenSource struct {
 	ClientID     string
 	ClientSecret string
@@ -141,7 +161,7 @@ func (s *OAuthTokenSource) refresh(ctx context.Context) error {
 	if tr.RefreshToken != "" {
 		s.RefreshToken = tr.RefreshToken
 	}
-	s.Expiry = now().Add(time.Duration(tr.ExpiresIn) * time.Second)
+	s.Expiry = expiryFromExpiresIn(now, tr.ExpiresIn)
 	if s.OnRefresh != nil {
 		s.OnRefresh(s.AccessToken, s.RefreshToken, s.Expiry)
 	}

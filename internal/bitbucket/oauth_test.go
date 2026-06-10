@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -121,5 +122,33 @@ func TestOAuthTokenSourceRefreshError(t *testing.T) {
 	err := ts.Authorize(context.Background(), req)
 	if err == nil {
 		t.Fatal("expected an error when refresh fails")
+	}
+	if !strings.Contains(err.Error(), "invalid_grant") {
+		t.Fatalf("error should mention invalid_grant: %v", err)
+	}
+}
+
+func TestOAuthTokenSourceRefreshesWithinBuffer(t *testing.T) {
+	now := time.Date(2026, 6, 10, 12, 0, 0, 0, time.UTC)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"access_token":"refreshed","refresh_token":"rt2","expires_in":7200,"token_type":"bearer"}`)
+	}))
+	defer srv.Close()
+	old := tokenEndpoint
+	tokenEndpoint = srv.URL
+	defer func() { tokenEndpoint = old }()
+
+	ts := &OAuthTokenSource{
+		ClientID: "id", ClientSecret: "secret",
+		AccessToken: "soon-stale", RefreshToken: "rt",
+		Expiry:     now.Add(30 * time.Second), // inside the 60s buffer
+		HTTPClient: srv.Client(), now: fixedNow(now),
+	}
+	req, _ := http.NewRequest(http.MethodGet, "https://api.bitbucket.org/2.0/user", nil)
+	if err := ts.Authorize(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if req.Header.Get("Authorization") != "Bearer refreshed" {
+		t.Fatalf("auth = %q", req.Header.Get("Authorization"))
 	}
 }
