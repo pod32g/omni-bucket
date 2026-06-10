@@ -8,8 +8,10 @@ import (
 	"net/url"
 	"os/exec"
 	"runtime"
+	"time"
 
 	"github.com/pod32g/omni-bucket/internal/bitbucket"
+	"github.com/pod32g/omni-bucket/internal/config"
 )
 
 const (
@@ -89,4 +91,33 @@ func openBrowser(target string) error {
 		cmd, args = "xdg-open", []string{target}
 	}
 	return exec.Command(cmd, args...).Start()
+}
+
+// oauthClientFromConfig builds a Bearer client whose token source persists
+// rotated tokens back to the config file on refresh.
+func oauthClientFromConfig(cfg *config.Config) (*bitbucket.Client, error) {
+	if cfg.OAuth == nil || cfg.OAuth.RefreshToken == "" {
+		return nil, fmt.Errorf("not authenticated, run `bb auth login --browser`")
+	}
+	oc := cfg.OAuth
+	ts := bitbucket.NewOAuthTokenSource(
+		oc.ClientID, oc.ClientSecret, oc.AccessToken, oc.RefreshToken, oc.Expiry, nil,
+		func(access, refresh string, expiry time.Time) {
+			persistOAuthTokens(access, refresh, expiry)
+		},
+	)
+	return bitbucket.NewClientWithAuth(ts), nil
+}
+
+// persistOAuthTokens writes refreshed tokens back to the config file. It is
+// best-effort: a failure here only means the next run refreshes again.
+func persistOAuthTokens(access, refresh string, expiry time.Time) {
+	cfg, err := config.Load()
+	if err != nil || cfg.OAuth == nil {
+		return
+	}
+	cfg.OAuth.AccessToken = access
+	cfg.OAuth.RefreshToken = refresh
+	cfg.OAuth.Expiry = expiry
+	_ = cfg.Save()
 }

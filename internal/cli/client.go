@@ -33,6 +33,9 @@ func defaultNewClient() (*bitbucket.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.AuthMethod() == "oauth" {
+		return oauthClientFromConfig(cfg)
+	}
 	email, token, _ := cfg.Resolved()
 	if email == "" || token == "" {
 		return nil, errors.New("not authenticated, run `bb auth login`")
