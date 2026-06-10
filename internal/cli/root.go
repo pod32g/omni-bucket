@@ -21,5 +21,6 @@ func NewRootCmd() *cobra.Command {
 	root.PersistentFlags().BoolVar(&flags.json, "json", false, "output JSON")
 	root.PersistentFlags().StringVar(&flags.repo, "repo", "", "repository as workspace/repo")
 	root.PersistentFlags().StringVar(&flags.workspace, "workspace", "", "default workspace")
+	root.AddCommand(newPRCmd())
 	return root
 }
