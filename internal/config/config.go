@@ -4,15 +4,35 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Config holds persisted CLI settings.
 type Config struct {
-	Email            string `yaml:"email"`
-	Token            string `yaml:"token"`
-	DefaultWorkspace string `yaml:"default_workspace,omitempty"`
+	Method           string       `yaml:"method,omitempty"` // "token" (default) | "oauth"
+	Email            string       `yaml:"email,omitempty"`
+	Token            string       `yaml:"token,omitempty"`
+	DefaultWorkspace string       `yaml:"default_workspace,omitempty"`
+	OAuth            *OAuthConfig `yaml:"oauth,omitempty"`
+}
+
+// OAuthConfig holds OAuth 2.0 consumer credentials and tokens.
+type OAuthConfig struct {
+	ClientID     string    `yaml:"client_id"`
+	ClientSecret string    `yaml:"client_secret"`
+	AccessToken  string    `yaml:"access_token"`
+	RefreshToken string    `yaml:"refresh_token"`
+	Expiry       time.Time `yaml:"expiry"`
+}
+
+// AuthMethod returns "oauth" when OAuth login is configured, else "token".
+func (c *Config) AuthMethod() string {
+	if c.Method == "oauth" {
+		return "oauth"
+	}
+	return "token"
 }
 
 // Path returns the config file location. OMNI_BUCKET_CONFIG overrides it

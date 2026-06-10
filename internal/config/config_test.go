@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/pod32g/omni-bucket/internal/config"
 )
@@ -59,5 +60,40 @@ func TestResolvedWorkspaceEnvOverride(t *testing.T) {
 	_, _, ws := c.Resolved()
 	if ws != "envws" {
 		t.Fatalf("ws = %q, want envws", ws)
+	}
+}
+
+func TestOAuthConfigRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yml")
+	t.Setenv("OMNI_BUCKET_CONFIG", path)
+	exp := time.Date(2026, 6, 10, 18, 0, 0, 0, time.UTC)
+	c := &config.Config{
+		Method: "oauth",
+		OAuth: &config.OAuthConfig{
+			ClientID: "id", ClientSecret: "secret",
+			AccessToken: "at", RefreshToken: "rt", Expiry: exp,
+		},
+	}
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Method != "oauth" || got.OAuth == nil {
+		t.Fatalf("got %+v", got)
+	}
+	if got.OAuth.ClientID != "id" || got.OAuth.RefreshToken != "rt" || !got.OAuth.Expiry.Equal(exp) {
+		t.Fatalf("oauth = %+v", got.OAuth)
+	}
+}
+
+func TestAuthMethodDefaultsToToken(t *testing.T) {
+	if (&config.Config{}).AuthMethod() != "token" {
+		t.Fatal("empty method should be token")
+	}
+	if (&config.Config{Method: "oauth"}).AuthMethod() != "oauth" {
+		t.Fatal("oauth method should be oauth")
 	}
 }
