@@ -31,6 +31,9 @@ func newAuthLoginCmd() *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 
+			if token == "" {
+				writeTokenSetupHelp(out)
+			}
 			if email == "" {
 				reader := bufio.NewReader(cmd.InOrStdin())
 				fmt.Fprint(out, "Bitbucket email: ")
@@ -59,7 +62,7 @@ func newAuthLoginCmd() *cobra.Command {
 			client := newCredClientFn(email, token)
 			acct, err := client.CurrentUser(cmd.Context())
 			if err != nil {
-				return fmt.Errorf("token verification failed: %w", err)
+				return loginError(err)
 			}
 
 			cfg, err := config.Load()

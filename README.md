@@ -22,13 +22,20 @@ embedded VCS metadata.
 
 ## Authenticate
 
-`bb` uses a scoped Bitbucket Cloud **API token** (Basic auth with your email).
-Create one at: Bitbucket → Personal settings → API tokens → *Create API token with scopes*.
+`bb` uses a scoped Bitbucket Cloud **API token** (Basic auth with your Atlassian
+email). Create one at <https://id.atlassian.com/manage-profile/security/api-tokens>
+using **"Create API token with scopes"** → select **Bitbucket** → grant at least
+**Account: read** (plus Repositories / Pull requests / Pipelines / Issues as needed).
 
 ```bash
 bb auth login            # prompts for email + token (stored in ~/.config/omni-bucket/config.yml, 0600)
 bb auth status           # show the authenticated account
 ```
+
+> **401 "Token is invalid, expired, or not supported for this endpoint"?**
+> The token has no Bitbucket scopes. A plain *Create API token* won't work —
+> recreate it with *Create API token with scopes* and grant the Bitbucket scopes
+> above. Make sure you sign in with your **Atlassian account email**.
 
 Or use environment variables (these override the config file):
 
