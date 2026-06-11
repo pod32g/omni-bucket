@@ -5,8 +5,20 @@ A command-line client for Bitbucket Cloud (REST API 2.0).
 ## Install
 
 ```bash
+make build                       # builds ./bb stamped with the git version
+# or a plain build (version comes from embedded VCS info):
 go build -o bb ./cmd/omni-bucket
 ```
+
+Check the version:
+
+```bash
+bb --version                     # e.g. "bb v0.1.0 (a1b2c3d4e5f6, 2026-06-10T12:00:00Z)"
+```
+
+`make build` injects the version from `git describe --tags --always --dirty`. A
+plain `go build` still reports the commit and build date from the Go toolchain's
+embedded VCS metadata.
 
 ## Authenticate
 
