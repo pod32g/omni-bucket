@@ -1,6 +1,9 @@
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/pod32g/omni-bucket/internal/version"
+	"github.com/spf13/cobra"
+)
 
 type globalFlags struct {
 	json      bool
@@ -17,7 +20,9 @@ func NewRootCmd() *cobra.Command {
 		Short:         "A command-line client for Bitbucket Cloud",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Version:       version.Info(),
 	}
+	root.SetVersionTemplate("bb {{.Version}}\n")
 	root.PersistentFlags().BoolVar(&flags.json, "json", false, "output JSON")
 	root.PersistentFlags().StringVar(&flags.repo, "repo", "", "repository as workspace/repo")
 	root.PersistentFlags().StringVar(&flags.workspace, "workspace", "", "default workspace")
