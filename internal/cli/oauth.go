@@ -159,6 +159,13 @@ func runBrowserLogin(cmd *cobra.Command, clientID, clientSecret string) error {
 	if clientSecret == "" && cfg.OAuth != nil {
 		clientSecret = cfg.OAuth.ClientSecret
 	}
+	if clientID == "" || clientSecret == "" {
+		_, _, ws := cfg.Resolved()
+		if flags.workspace != "" {
+			ws = flags.workspace
+		}
+		writeConsumerSetupHelp(out, ws)
+	}
 	if clientID == "" {
 		clientID, err = promptLine(cmd, "OAuth consumer Key (client_id): ")
 		if err != nil {
